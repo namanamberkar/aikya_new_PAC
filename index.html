@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Property Availability</title>
+
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #FFDA81 0%, #FFE5A3 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="1.5" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="80" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="90" r="2.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="1.5" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+      pointer-events: none;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(180deg); }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2);
+      width: 100%;
+      max-width: 480px;
+      padding: 40px 35px;
+      text-align: center;
+      position: relative;
+      transform: translateY(0);
+      transition: all 0.3s ease;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.3);
+    }
+
+    .logo {
+      width: 140px;
+      margin: 0 auto 25px;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+      transition: transform 0.3s ease;
+    }
+
+    .logo:hover {
+      transform: scale(1.05) rotate(2deg);
+    }
+
+    h2 {
+      font-size: 2rem;
+      color: #2c3e50;
+      margin-bottom: 30px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    @media(min-width: 600px) {
+      .input-group {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+      }
+    }
+
+    .date-picker-container {
+      position: relative;
+      width: 100%;
+    }
+
+    .date-input {
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 2px solid #e1e8ed;
+      font-size: 1rem;
+      background: #f8fafc;
+      color: #2c3e50;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .date-input:hover, .date-input.active {
+      border-color: #664229;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(102, 66, 41, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .date-input .calendar-icon {
+      font-size: 1.2rem;
+      color: #664229;
+    }
+
+    .custom-calendar {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      border: 2px solid #e1e8ed;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+      transition: all 0.3s ease;
+      margin-top: 8px;
+    }
+
+    .custom-calendar.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #e1e8ed;
+      background: linear-gradient(135deg, #664229 0%, #8B5A3C 100%);
+      color: white;
+      border-radius: 13px 13px 0 0;
+    }
+
+    .calendar-nav {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+    }
+
+    .calendar-nav:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+
+    .calendar-month-year {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .calendar-grid {
+      padding: 20px;
+    }
+
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .calendar-weekday {
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #7f8c8d;
+      padding: 8px 0;
+    }
+
+    .calendar-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .calendar-day:hover {
+      background: rgba(102, 66, 41, 0.1);
+      transform: scale(1.1);
+    }
+
+    .calendar-day.other-month {
+      color: #bdc3c7;
+    }
+
+    .calendar-day.today {
+      background: linear-gradient(135deg, #FFDA81 0%, #FFE5A3 100%);
+      color: #664229;
+      font-weight: 600;
+    }
+
+    .calendar-day.selected {
+      background: linear-gradient(135deg, #664229 0%, #8B5A3C 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    .calendar-day.disabled {
+      color: #ecf0f1;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .calendar-day.available {
+      background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+      color: white;
+      font-weight: 600;
+      position: relative;
+    }
+
+    /*
+	.calendar-day.available::after {
+      content: '✓';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #27ae60;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+	*/
+
+    .calendar-day.unavailable {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+      font-weight: 600;
+      position: relative;
+    }
+
+     /*
+    .calendar-day.unavailable::after {
+      content: '✕';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #e74c3c;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+	*/
+
+    .calendar-day.checking {
+      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      color: white;
+      position: relative;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .calendar-day.checking::after {
+      content: '⏳';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 0.7rem;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .availability-legend {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(102, 66, 41, 0.05);
+      border-radius: 10px;
+      font-size: 0.8rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .legend-available { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); }
+    .legend-unavailable { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .legend-today { background: linear-gradient(135deg, #FFDA81 0%, #FFE5A3 100%); }
+
+    input[type="date"] {
+      display: none;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 2px solid #e1e8ed;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-container:hover {
+      background: #fff;
+      border-color: #664229;
+      transform: translateY(-1px);
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #664229;
+    }
+
+    .checkbox-label {
+      font-size: 0.95rem;
+      color: #2c3e50;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      padding: 18px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #664229 0%, #8B5A3C 100%);
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(102, 66, 41, 0.3);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    button:hover::before {
+      left: 100%;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #FFDA81 0%, #FFE5A3 100%);
+      color: #664229;
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px rgba(102, 66, 41, 0.4);
+    }
+
+    button:active {
+      transform: translateY(-1px);
+    }
+
+    #result {
+      margin-top: 30px;
+      font-size: 1rem;
+      color: #2c3e50;
+      padding: 25px;
+      background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+      border-radius: 15px;
+      border: 2px solid #e1e8ed;
+      min-height: 120px;
+      text-align: left;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.4s ease;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    #result.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #result ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    #result ul li {
+      margin-bottom: 12px;
+      font-size: 1rem;
+      padding: 12px 16px;
+      background: rgba(102, 66, 41, 0.05);
+      border-radius: 8px;
+      border-left: 4px solid #664229;
+      transition: all 0.3s ease;
+    }
+
+    #result ul li:hover {
+      background: rgba(102, 66, 41, 0.1);
+      transform: translateX(5px);
+    }
+
+    #result ul li strong {
+      color: #664229;
+      font-weight: 600;
+    }
+
+    .error {
+      color: #e74c3c;
+      font-weight: 600;
+      background: rgba(231, 76, 60, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #e74c3c;
+    }
+
+    .success-message {
+      color: #27ae60;
+      font-weight: 600;
+      background: rgba(39, 174, 96, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #27ae60;
+    }
+
+    .spinner {
+      border: 4px solid rgba(102, 66, 41, 0.1);
+      border-top: 4px solid #664229;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 30px auto;
+      display: none;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .no-results {
+      text-align: center;
+      color: #7f8c8d;
+      font-style: italic;
+      padding: 20px;
+      background: rgba(127, 140, 141, 0.05);
+      border-radius: 8px;
+      border: 2px dashed #bdc3c7;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 480px) {
+      .container {
+        padding: 30px 25px;
+        margin: 10px;
+      }
+
+      h2 {
+        font-size: 1.6rem;
+      }
+
+      input[type="date"], button {
+        padding: 14px 16px;
+      }
+    }
+
+    /* Loading state for button */
+    button.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    button.loading::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      margin: auto;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    /* Install button */
+    #installBtn {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: rgba(255,255,255,0.9);
+      border: 2px solid #e1e8ed;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+      z-index: 2000;
+    }
+    #installBtn.show { display: inline-block; }
+  </style>
+</head>
+<body>
+  <button id="installBtn" aria-hidden="true">Install App</button>
+
+  <div class="container" role="application" aria-label="Property Availability">
+    <img src="icon.png" alt="Logo" class="logo" />
+    <h2>Check Property Availability</h2>
+
+    <div class="input-group">
+      <div class="date-picker-container">
+        <div class="date-input" onclick="toggleCalendar()" id="dateDisplay" role="button" aria-haspopup="true">
+          <span id="selectedDateText">Select a date</span>
+          <span class="calendar-icon">📅</span>
+        </div>
+
+        <input type="date" id="datePicker" aria-label="Date input" />
+
+        <div class="custom-calendar" id="customCalendar" aria-hidden="true">
+          <div class="calendar-header">
+            <button class="calendar-nav" onclick="previousMonth()" aria-label="Previous month">‹</button>
+            <div class="calendar-month-year" id="monthYear" aria-live="polite"></div>
+            <button class="calendar-nav" onclick="nextMonth()" aria-label="Next month">›</button>
+          </div>
+
+          <div class="calendar-grid">
+            <div class="calendar-weekdays">
+              <div class="calendar-weekday">Sun</div>
+              <div class="calendar-weekday">Mon</div>
+              <div class="calendar-weekday">Tue</div>
+              <div class="calendar-weekday">Wed</div>
+              <div class="calendar-weekday">Thu</div>
+              <div class="calendar-weekday">Fri</div>
+              <div class="calendar-weekday">Sat</div>
+            </div>
+
+            <div class="calendar-days" id="calendarDays" role="grid"></div>
+
+            <div class="availability-legend" aria-hidden="true">
+              <div class="legend-item">
+                <div class="legend-color legend-available"></div><span>Available</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-unavailable"></div><span>Unavailable</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-today"></div><span>Today</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="checkbox-container" onclick="toggleCheckbox()" role="checkbox" aria-checked="false" tabindex="0">
+        <input type="checkbox" id="nearbyDays" />
+        <span class="checkbox-label">Include ±2 Days</span>
+      </div>
+    </div>
+
+    <button id="checkBtn" onclick="checkAvailability()">Check Availability</button>
+    <div class="spinner" id="spinner" aria-hidden="true"></div>
+    <div id="result" aria-live="polite"></div>
+  </div>
+
+  <script>
+    // Set your Apps Script URL here (change if you publish a different deployment)
+    //const apiUrl = 'https://script.google.com/macros/s/AKfycbxv8SzgDAnUAN0zmwcOJ1r4n8_KVD59rYR9CDfJX1oa-lMLv57YokLUwLBZtJZ2_sBtAA/exec';
+	const apiUrl = 'https://script.google.com/macros/s/AKfycbxi6oN1K62zfLyLJeUvmJ7FOfys-Mkj8VnEW6xfT2AnNCSTtvkzXu3kg8T5a3OxPeQ9aw/exec';
+
+    // Calendar state
+    let currentDate = new Date();
+    let selectedDate = null;
+    let calendarVisible = false;
+    let availabilityCache = new Map();
+
+    // PWA install prompt handling
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.classList.add('show');
+      installBtn.setAttribute('aria-hidden', 'false');
+    });
+
+    installBtn.addEventListener('click', async () => {
+      installBtn.classList.remove('show');
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      }
+    });
+
+    // Toggle checkbox (visual)
+    function toggleCheckbox() {
+      const checkbox = document.getElementById('nearbyDays');
+      checkbox.checked = !checkbox.checked;
+      const container = document.querySelector('.checkbox-container');
+      container.setAttribute('aria-checked', checkbox.checked);
+    }
+
+    // Toggle calendar visibility
+    function toggleCalendar() {
+      const calendar = document.getElementById('customCalendar');
+      const dateInput = document.getElementById('dateDisplay');
+
+      calendarVisible = !calendarVisible;
+      if (calendarVisible) {
+        calendar.classList.add('show');
+        dateInput.classList.add('active');
+        calendar.setAttribute('aria-hidden', 'false');
+        renderCalendar();
+      } else {
+        calendar.classList.remove('show');
+        dateInput.classList.remove('active');
+        calendar.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function renderCalendar() {
+      const monthYear = document.getElementById('monthYear');
+      const calendarDays = document.getElementById('calendarDays');
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      monthYear.textContent = `${monthNames[month]} ${year}`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setHours(0,0,0,0);
+
+      calendarDays.innerHTML = '';
+
+      // previous month trailing days
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        const el = createDayElement(day, 'other-month', year, month - 1);
+        calendarDays.appendChild(el);
+      }
+
+      // current month days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayDate = new Date(year, month, day);
+        const isToday = dayDate.toDateString() === today.toDateString();
+        const isSelected = selectedDate && dayDate.toDateString() === selectedDate.toDateString();
+        const isPast = dayDate < minDate;
+
+        let classes = '';
+        if (isToday) classes += ' today';
+        if (isSelected) classes += ' selected';
+        if (isPast) classes += ' disabled';
+
+        const dayElement = createDayElement(day, classes, year, month, dayDate);
+        calendarDays.appendChild(dayElement);
+      }
+
+      // next month leading days (fill to 42)
+      const totalCells = calendarDays.children.length;
+      const remainingCells = 42 - totalCells;
+      for (let day = 1; day <= remainingCells && day <= 14; day++) {
+        const el = createDayElement(day, 'other-month', year, month + 1);
+        calendarDays.appendChild(el);
+      }
+
+      // fetch availability for visible month
+      checkMonthAvailability(year, month);
+    }
+
+    function createDayElement(day, classes, year, month, dayDate = null) {
+      const dayElement = document.createElement('div');
+      dayElement.className = `calendar-day ${classes}`;
+      dayElement.textContent = day;
+
+      if (!classes.includes('disabled') && !classes.includes('other-month')) {
+        dayElement.onclick = () => selectDate(year, month, day);
+        dayElement.tabIndex = 0;
+      }
+
+      if (dayDate) {
+        dayElement.setAttribute('data-date', dayDate.toISOString().split('T')[0]);
+      }
+
+      return dayElement;
+    }
+
+    function selectDate(year, month, day) {
+      selectedDate = new Date(year, month, day);
+      const dateInput = document.getElementById('datePicker');
+      const selectedDateText = document.getElementById('selectedDateText');
+
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      dateInput.value = formattedDate;
+      localStorage.setItem('lastDate', formattedDate);
+
+      const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+      selectedDateText.textContent = selectedDate.toLocaleDateString('en-US', options);
+
+      toggleCalendar();
+    }
+
+    function previousMonth() {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    }
+
+    // close calendar when clicked outside
+    document.addEventListener('click', function(event) {
+      const calendar = document.getElementById('customCalendar');
+      const dateInput = document.getElementById('dateDisplay');
+      if (!calendar.contains(event.target) && !dateInput.contains(event.target)) {
+        if (calendarVisible) toggleCalendar();
+      }
+    });
+
+    // init
+    document.addEventListener('DOMContentLoaded', function() {
+      const last = localStorage.getItem('lastDate');
+      if (last) {
+        document.getElementById('datePicker').value = last;
+        selectedDate = new Date(last);
+        const opts = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+        document.getElementById('selectedDateText').textContent = selectedDate.toLocaleDateString('en-US', opts);
+      }
+      renderCalendar();
+    });
+
+    // --- Availability checks ---
+    async function checkMonthAvailability(year, month) {
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayDate = new Date(year, month, day);
+        if (dayDate < today) continue;
+
+        const dateKey = dayDate.toISOString().split('T')[0];
+        if (availabilityCache.has(dateKey)) {
+          updateDayAvailability(dayDate, availabilityCache.get(dateKey));
+          continue;
+        }
+
+        setTimeout(() => checkDateAvailability(dayDate), day * 70);
+      }
+    }
+
+    async function checkDateAvailability(date) {
+      const dateKey = date.toISOString().split('T')[0];
+      updateDayAvailability(date, 'checking');
+
+      try {
+        const resp = await fetch(`${apiUrl}?date=${dateKey}&includeNearby=false`);
+        const data = await resp.json();
+
+        let availability = 'unavailable';
+        if (data.available_properties && data.available_properties.length > 0) availability = 'available';
+
+        availabilityCache.set(dateKey, availability);
+        updateDayAvailability(date, availability);
+      } catch (err) {
+        console.error('Error checking', dateKey, err);
+        updateDayAvailability(date, null);
+      }
+    }
+
+    function updateDayAvailability(date, availability) {
+      const calendarDays = document.getElementById('calendarDays');
+      const dayElements = calendarDays.querySelectorAll('.calendar-day');
+
+      dayElements.forEach(dayElement => {
+        const dAttr = dayElement.getAttribute('data-date');
+        const current = date.toISOString().split('T')[0];
+
+        if (dAttr) {
+          if (dAttr !== current) return;
+        } else {
+          if (parseInt(dayElement.textContent,10) !== date.getDate()) return;
+        }
+
+        if (dayElement.classList.contains('other-month') || dayElement.classList.contains('disabled')) return;
+
+        dayElement.classList.remove('available','unavailable','checking');
+        if (availability === 'available') dayElement.classList.add('available');
+        else if (availability === 'unavailable') dayElement.classList.add('unavailable');
+        else if (availability === 'checking') dayElement.classList.add('checking');
+      });
+    }
+
+    // --- Main single-date availability check (UI button) ---
+    async function checkAvailability() {
+      const dateInput = document.getElementById('datePicker').value;
+      const nearbyDays = document.getElementById('nearbyDays').checked;
+      const resultDiv = document.getElementById('result');
+      const spinner = document.getElementById('spinner');
+      const button = document.getElementById('checkBtn');
+
+      if (!dateInput) {
+        showError("Please select a date to check availability.");
+        return;
+      }
+
+      const formattedDate = dateInput; // use input directly to avoid timezone shift
+
+      resultDiv.innerHTML = "";
+      resultDiv.classList.remove('show');
+      spinner.style.display = 'block';
+      button.classList.add('loading');
+      button.setAttribute('disabled', 'true');
+      button.textContent = 'Checking...';
+
+      try {
+        const res = await fetch(`${apiUrl}?date=${formattedDate}&includeNearby=${nearbyDays}`);
+        const data = await res.json();
+
+        spinner.style.display = 'none';
+        button.classList.remove('loading');
+        button.removeAttribute('disabled');
+        button.textContent = 'Check Availability';
+
+        if (data.error) {
+          showError(data.error);
+          return;
+        }
+
+        if (data.available_properties && data.available_properties.length > 0) {
+          resultDiv.innerHTML = `
+            <div class="success-message">
+              <strong>🏠 ${data.available} properties available!</strong>
+            </div>
+            <ul>
+              ${data.available_properties.map(p => `
+                <li>
+                  <strong>${p.sheet}</strong><br>
+                  📅 ${formatDate(p.date)} • Available: ${p.available}
+                </li>
+              `).join('')}
+            </ul>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="no-results">
+              <strong>😔 No properties available</strong><br>
+              Try selecting a different date or include nearby days.
+            </div>
+          `;
+        }
+
+        resultDiv.classList.add('show');
+      } catch (err) {
+        console.error(err);
+        spinner.style.display = 'none';
+        button.classList.remove('loading');
+        button.removeAttribute('disabled');
+        button.textContent = 'Check Availability';
+        showError("Unable to fetch data. Check your connection and try again.");
+      }
+    }
+
+    function showError(message) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `<div class="error">⚠️ ${message}</div>`;
+      resultDiv.classList.add('show');
+    }
+
+    function formatDate(dateString) {
+      const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString('en-US', options);
+    }
+
+    // Service Worker registration (improved)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').then(reg => {
+          console.log('Service Worker registered:', reg.scope);
+        }).catch(err => {
+          console.warn('Service Worker registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
